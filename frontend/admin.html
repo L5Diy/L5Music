@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <title>L5Music Admin</title>
+  <link rel="icon" type="image/png" href="/favicon.png?v=b371" />
+  <script>
+    window.L5_ACCENTS = {
+      orange: { accent:'#FF7A18', accent2:'#ff9a3c', weak:'rgba(255,122,24,.18)', glow:'rgba(255,122,24,.12)', focus:'rgba(255,122,24,.55)' },
+      blue:   { accent:'#3B82F6', accent2:'#60a5fa', weak:'rgba(59,130,246,.18)', glow:'rgba(59,130,246,.12)', focus:'rgba(59,130,246,.55)' },
+      purple: { accent:'#A855F7', accent2:'#c084fc', weak:'rgba(168,85,247,.18)', glow:'rgba(168,85,247,.12)', focus:'rgba(168,85,247,.55)' },
+      green:  { accent:'#22C55E', accent2:'#4ade80', weak:'rgba(34,197,94,.18)', glow:'rgba(34,197,94,.12)', focus:'rgba(34,197,94,.55)' },
+      red:    { accent:'#EF4444', accent2:'#f87171', weak:'rgba(239,68,68,.18)', glow:'rgba(239,68,68,.12)', focus:'rgba(239,68,68,.55)' },
+      pink:   { accent:'#EC4899', accent2:'#f472b6', weak:'rgba(236,72,153,.18)', glow:'rgba(236,72,153,.12)', focus:'rgba(236,72,153,.55)' }
+    };
+    window.L5_BGS = {
+      black:  { bg0:'#070707', bg1:'#0f0f10', bg2:'#151516', text0:'#f3f3f3', text1:'rgba(255,255,255,.72)', muted:'rgba(255,255,255,.45)', stroke:'rgba(255,255,255,.08)', overlay:'rgba(255,255,255,.06)', hoverBg:'rgba(255,255,255,.06)', hoverBorder:'rgba(255,255,255,.12)', hoverColor:'#ffffff', isDark:'1' },
+      gray:   { bg0:'#262626', bg1:'#2e2e2e', bg2:'#383838', text0:'#f3f3f3', text1:'rgba(255,255,255,.72)', muted:'rgba(255,255,255,.50)', stroke:'rgba(255,255,255,.10)', overlay:'rgba(255,255,255,.06)', hoverBg:'rgba(255,255,255,.08)', hoverBorder:'rgba(255,255,255,.14)', hoverColor:'#ffffff', isDark:'1' },
+      warm:   { bg0:'#f5f0e8', bg1:'#ece5d8', bg2:'#e0d6c4', text0:'#1a1a1a', text1:'rgba(0,0,0,.72)', muted:'rgba(0,0,0,.45)', stroke:'rgba(0,0,0,.10)', overlay:'rgba(0,0,0,.04)', hoverBg:'rgba(0,0,0,.06)', hoverBorder:'rgba(0,0,0,.12)', hoverColor:'#000000', isDark:'0' },
+      white:  { bg0:'#f8f8f8', bg1:'#f0f0f0', bg2:'#e8e8e8', text0:'#1a1a1a', text1:'rgba(0,0,0,.72)', muted:'rgba(0,0,0,.45)', stroke:'rgba(0,0,0,.10)', overlay:'rgba(0,0,0,.04)', hoverBg:'rgba(0,0,0,.06)', hoverBorder:'rgba(0,0,0,.12)', hoverColor:'#000000', isDark:'0' }
+    };
+    window.applyL5Theme = function() {
+      var r = document.documentElement.style;
+      var a = window.L5_ACCENTS[localStorage.getItem('l5_accent')] || window.L5_ACCENTS.orange;
+      var b = window.L5_BGS[localStorage.getItem('l5_bg')] || window.L5_BGS.black;
+      r.setProperty('--accent', a.accent); r.setProperty('--accent-2', a.accent2); r.setProperty('--accent-weak', a.weak);
+      r.setProperty('--accent-glow', a.glow); r.setProperty('--accent-focus', a.focus);
+      r.setProperty('--bg-0', b.bg0); r.setProperty('--bg-1', b.bg1); r.setProperty('--bg-2', b.bg2);
+      r.setProperty('--text-0', b.text0); r.setProperty('--text-1', b.text1); r.setProperty('--muted', b.muted); r.setProperty('--stroke', b.stroke);
+      r.setProperty('--overlay', b.overlay); r.setProperty('--hover-bg', b.hoverBg); r.setProperty('--hover-border', b.hoverBorder); r.setProperty('--hover-color', b.hoverColor);
+      document.documentElement.setAttribute('data-theme', b.isDark === '1' ? 'dark' : 'light');
+    };
+    applyL5Theme();
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --orange: var(--accent);
+      --orange-dim: var(--accent-2);
+      --bg: var(--bg-0);
+      --surface: var(--bg-1);
+      --surface2: var(--bg-2);
+      --border: var(--stroke);
+      --text: var(--text-0);
+      --muted: var(--muted);
+      --red: #e74c3c;
+      --green: #2ecc71;
+    }
+    body { background: radial-gradient(1200px 700px at 15% 0%, var(--accent-glow), transparent 55%), var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; }
+
+    /* ── NAV ── */
+    nav { display: flex; align-items: center; gap: 16px; padding: 0 24px; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); }
+    nav img { height: 32px; width: 32px; border-radius: 8px; }
+    nav .brand { font-size: 16px; color: var(--orange); }
+    nav .badge { font-size: 11px; background: var(--orange); color: #000; border-radius: 4px; padding: 2px 6px; font-weight: 700; }
+    nav .spacer { flex: 1; }
+    nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+    nav a:hover { color: var(--text); }
+
+    /* ── LAYOUT ── */
+    .page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 28px; }
+    h2 { font-size: 15px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 14px; }
+
+    /* ── CARDS ── */
+    .section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 28px; }
+
+    /* ── SESSIONS TABLE ── */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; color: var(--muted); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 8px 12px; border-bottom: 1px solid var(--border); }
+    td { padding: 12px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+    .pill { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; }
+    .pill-admin  { background: var(--accent-weak); color: var(--orange); }
+    .pill-user   { background: var(--overlay); color: var(--muted); }
+    .pill-you    { background: rgba(46,204,113,.15); color: var(--green); }
+    .pill-active { background: rgba(46,204,113,.15); color: var(--green); }
+    .pill-locked { background: rgba(231,76,60,.15); color: var(--red); }
+    .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); margin-right: 6px; box-shadow: 0 0 6px var(--green); }
+
+    /* ── EMPTY STATE ── */
+    .empty { text-align: center; color: var(--muted); padding: 32px; font-size: 14px; }
+
+    /* ── ADD USER FORM ── */
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group label { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+    input[type=text], input[type=password], select {
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+      padding: 8px 12px; border-radius: 7px; font-size: 14px; min-width: 150px; outline: none;
+    }
+    input:focus, select:focus { border-color: var(--orange); }
+    select option { background: var(--surface2); }
+    .btn { padding: 8px 18px; border-radius: 7px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--orange); color: #000; }
+    .btn-danger  { background: transparent; border: 1px solid var(--red); color: var(--red); padding: 5px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+    .btn-danger:hover { background: rgba(231,76,60,.1); }
+    .btn-reset { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+    .btn-reset:hover { border-color: var(--orange); color: var(--orange); }
+    .btn-lock { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 5px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+    .btn-lock:hover { border-color: var(--red); color: var(--red); }
+    .btn-unlock { background: transparent; border: 1px solid var(--orange); color: var(--orange); padding: 5px 12px; font-size: 12px; border-radius: 6px; cursor: pointer; }
+    .btn-unlock:hover { background: rgba(255,122,24,.1); }
+
+    /* ── MODALS ── */
+    .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100;display:flex;align-items:center;justify-content:center; }
+    .modal-box { background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;min-width:300px;display:flex;flex-direction:column;gap:12px; }
+    .modal-box h3 { font-size:16px;font-weight:600; }
+    .modal-box p { font-size:13px;color:var(--muted); }
+    .modal-box input { background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:7px;font-size:14px;width:100%;outline:none; }
+    .modal-box input:focus { border-color:var(--orange); }
+    .modal-actions { display:flex;gap:8px;justify-content:flex-end; }
+
+    /* ── ERROR / SUCCESS ── */
+    .toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 18px; border-radius: 8px; font-size: 14px; font-weight: 500; z-index: 999; animation: fadein .2s; }
+    .toast-ok  { background: #1a3a2a; border: 1px solid var(--green); color: var(--green); }
+    .toast-err { background: #3a1a1a; border: 1px solid var(--red); color: var(--red); }
+    @keyframes fadein { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+
+    /* ── ACCESS DENIED ── */
+    #access-denied { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 12px; color: var(--muted); }
+    #access-denied h2 { color: var(--red); font-size: 18px; text-transform: none; letter-spacing: 0; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <img src="/assets/music_logo.png" alt="L5Music" />
+  <span class="brand"><span style="font-weight:900;font-family:sans-serif;color:var(--text-0)">L5</span><span style="font-family:Didot,'Bodoni MT','Didot LT STD',serif;font-style:normal;font-weight:400;color:var(--accent)">Music</span></span>
+  <span class="badge">ADMIN</span>
+  <span class="spacer"></span>
+  <a href="/index.html" style="color:var(--accent)">← Back to App</a>
+</nav>
+
+<div class="page" id="main" style="display:none">
+  <h1 style="display:flex;align-items:center;justify-content:space-between">Admin Dashboard <button class="btn btn-primary" style="font-size:14px;padding:8px 16px" onclick="openAddUserModal()">+ Add User</button></h1>
+
+  <!-- Pending Signup Requests -->
+  <div class="section" id="pending-section">
+    <h2>Pending Signup Requests</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>Email</th>
+          <th>Requested</th>
+          <th>Action</th>
+        </tr></thead>
+        <tbody id="pending-body">
+          <tr><td colspan="3" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Users -->
+  <div class="section">
+    <h2>Users</h2>
+    <div class="table-wrap">
+      <table id="users-table">
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="users-body">
+          <tr><td colspan="6" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="reset-modal" style="display:none" class="modal-overlay">
+  <div class="modal-box">
+    <h3>Reset Password</h3>
+    <p id="reset-modal-label"></p>
+    <input type="password" id="reset-pw-input" placeholder="New password" autocomplete="new-password" />
+    <input type="password" id="reset-pw-confirm" placeholder="Confirm new password" autocomplete="new-password" />
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--surface2);color:var(--muted)" onclick="closeResetModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitResetPassword()">Update</button>
+    </div>
+  </div>
+</div>
+
+<!-- Lock / Unlock / Delete Confirm Modal -->
+<div id="lock-modal" style="display:none" class="modal-overlay">
+  <div class="modal-box">
+    <h3 id="lock-modal-title"></h3>
+    <p id="lock-modal-label"></p>
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--surface2);color:var(--muted)" onclick="closeLockModal()">Cancel</button>
+      <button class="btn" id="lock-modal-confirm" onclick="submitConfirmAction()">Yes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="add-user-modal" style="display:none" class="modal-overlay">
+  <div class="modal-box" style="min-width:340px">
+    <h3>Add User</h3>
+    <div class="form-group"><label>Username</label><input type="text" id="new-username" placeholder="username" autocomplete="off" /></div>
+    <div class="form-group"><label>Password</label><input type="password" id="new-password" placeholder="password" autocomplete="new-password" /></div>
+    <div class="form-group"><label>Role</label>
+      <select id="new-role" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:7px;font-size:14px;width:100%">
+        <option value="user">User</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" style="background:var(--surface2);color:var(--muted)" onclick="closeAddUserModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createUser()">Add</button>
+    </div>
+  </div>
+</div>
+
+<div id="access-denied">
+  <h2>Access Denied</h2>
+  <p>You need admin privileges to view this page.</p>
+  <a href="/index.html" style="color:var(--orange)">← Back to App</a>
+</div>
+
+<script>
+  const L5 = '/l5';
+  const token = localStorage.getItem('l5token');
+  let currentUser = null;
+  let isOwner = false;
+
+  function authHeader() {
+    return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  }
+
+  function showToast(msg, ok = true) {
+    const t = document.createElement('div');
+    t.className = 'toast ' + (ok ? 'toast-ok' : 'toast-err');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  function timeSince(ms) {
+    const s = Math.floor((Date.now() - ms) / 1000);
+    if (s < 60) return s + 's ago';
+    if (s < 3600) return Math.floor(s/60) + 'm ago';
+    if (s < 86400) return Math.floor(s/3600) + 'h ago';
+    return Math.floor(s/86400) + 'd ago';
+  }
+
+  function formatDate(ms) {
+    return new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  async function loadPending() {
+    try {
+      const r = await fetch(L5 + '/admin/pending', { headers: authHeader() });
+      const d = await r.json();
+      if (!d.ok) return;
+      const wrap = document.getElementById('pending-body');
+      if (!d.pending.length) {
+        wrap.innerHTML = '<tr><td colspan="3" class="empty">No pending requests</td></tr>';
+        return;
+      }
+      wrap.innerHTML = d.pending.map(p => `
+        <tr>
+          <td>${p.email}</td>
+          <td style="color:var(--muted);font-size:13px">${timeSince(p.createdAt)}</td>
+          <td style="display:flex;gap:6px">
+            <button class="btn-reset" style="border-color:var(--green);color:var(--green)" onclick="approvePending('${p.email}')">Approve</button>
+            <button class="btn-danger" onclick="rejectPending('${p.email}')">Reject</button>
+          </td>
+        </tr>
+      `).join('');
+    } catch(e) { console.error(e); }
+  }
+
+  async function approvePending(email) {
+    try {
+      const r = await fetch(L5 + '/admin/approve-signup', { method: 'POST', headers: authHeader(), body: JSON.stringify({ email }) });
+      const d = await r.json();
+      if (d.ok) { showToast(d.message || 'Approved'); loadPending(); }
+      else { showToast(d.error || 'Failed', false); }
+    } catch(e) { showToast('Network error', false); }
+  }
+
+  async function rejectPending(email) {
+    if (!confirm('Reject signup from ' + email + '?')) return;
+    try {
+      const r = await fetch(L5 + '/admin/reject-signup', { method: 'POST', headers: authHeader(), body: JSON.stringify({ email }) });
+      const d = await r.json();
+      if (d.ok) { showToast('Rejected'); loadPending(); }
+      else { showToast(d.error || 'Failed', false); }
+    } catch(e) { showToast('Network error', false); }
+  }
+
+  async function loadUsers() {
+    try {
+      const r = await fetch(L5 + '/admin/users', { headers: authHeader() });
+      const d = await r.json();
+      if (!d.ok) return;
+      const tbody = document.getElementById('users-body');
+      tbody.innerHTML = d.users.map(u => {
+        const locked = u.accountLocked === true;
+        const isSelf = u.username === currentUser;
+        const roleCell = isOwner && !isSelf
+          ? `<select class="role-select" data-user="${u.username}" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;font-size:12px">
+              <option value="user"${u.role==='user'?' selected':''}>User</option>
+              <option value="admin"${u.role==='admin'?' selected':''}>Admin</option>
+            </select>`
+          : `<span class="pill ${u.role === 'admin' ? 'pill-admin' : 'pill-user'}">${u.role}</span>`;
+        return `
+          <tr>
+            <td>${u.username}${isSelf ? ' <span class="pill pill-you">you</span>' : ''}</td>
+            <td>${roleCell}</td>
+            <td><span class="pill ${locked ? 'pill-locked' : 'pill-active'}">${locked ? 'Locked' : 'Active'}</span></td>
+            <td style="color:var(--muted)">${u.createdAt ? formatDate(u.createdAt) : '—'}</td>
+            <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+              <button class="btn-reset" onclick="resetPassword('${u.username}')">Reset PW</button>
+              ${!isSelf ? `<button class="${locked ? 'btn-unlock' : 'btn-lock'}" onclick="confirmLockToggle('${u.username}', ${locked})">${locked ? 'Unlock' : 'Lock'}</button>` : ''}
+              ${!isSelf ? `<button class="btn-danger" onclick="deleteUser('${u.username}')">Delete</button>` : ''}
+            </td>
+          </tr>
+        `;
+      }).join('');
+      // Bind role change dropdowns (owner only)
+      if (isOwner) {
+        tbody.querySelectorAll('.role-select').forEach(sel => {
+          sel.addEventListener('change', async () => {
+            const username = sel.dataset.user;
+            const role = sel.value;
+            try {
+              const r = await fetch(L5 + '/admin/users/' + username, { method: 'PATCH', headers: authHeader(), body: JSON.stringify({ role }) });
+              const d = await r.json();
+              if (d.ok) { showToast(username + ' → ' + role); }
+              else { showToast(d.error || 'Failed', false); loadUsers(); }
+            } catch(e) { showToast('Network error', false); }
+          });
+        });
+      }
+    } catch(e) { console.error(e); }
+  }
+
+  function openAddUserModal() {
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('new-role').value = 'user';
+    document.getElementById('add-user-modal').style.display = 'flex';
+  }
+  function closeAddUserModal() {
+    document.getElementById('add-user-modal').style.display = 'none';
+  }
+
+  async function createUser() {
+    const username = document.getElementById('new-username').value.trim();
+    const password = document.getElementById('new-password').value;
+    const role = document.getElementById('new-role').value;
+    if (!username || !password) { showToast('Username and password required', false); return; }
+    try {
+      const r = await fetch(L5 + '/admin/users', {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({ username, password, role })
+      });
+      const d = await r.json();
+      if (d.ok) {
+        showToast('User created: ' + username);
+        closeAddUserModal();
+        loadUsers();
+      } else {
+        showToast(d.error || 'Failed', false);
+      }
+    } catch(e) { showToast('Network error', false); }
+  }
+
+  let resetTarget = null;
+  function resetPassword(username) {
+    resetTarget = username;
+    document.getElementById('reset-modal-label').textContent = 'Set new password for ' + username;
+    document.getElementById('reset-pw-input').value = '';
+    document.getElementById('reset-pw-confirm').value = '';
+    document.getElementById('reset-modal').style.display = 'flex';
+  }
+  function closeResetModal() {
+    document.getElementById('reset-modal').style.display = 'none';
+    resetTarget = null;
+  }
+  async function submitResetPassword() {
+    const pw = document.getElementById('reset-pw-input').value;
+    const confirm = document.getElementById('reset-pw-confirm').value;
+    if (!pw) { showToast('Password required', false); return; }
+    if (pw !== confirm) { showToast('Passwords do not match', false); return; }
+    if (pw.length < 6) { showToast('Min 6 characters', false); return; }
+    try {
+      const r = await fetch(L5 + '/admin/users/' + resetTarget, {
+        method: 'PATCH',
+        headers: authHeader(),
+        body: JSON.stringify({ password: pw })
+      });
+      const d = await r.json();
+      if (d.ok) { showToast('Password updated for ' + resetTarget); closeResetModal(); }
+      else { showToast(d.error || 'Failed', false); }
+    } catch(e) { showToast('Network error', false); }
+  }
+
+  let modalTarget = null;
+  let modalMode = null; // 'lock', 'unlock', 'delete'
+
+  function confirmLockToggle(username, currentlyLocked) {
+    modalTarget = username;
+    modalMode = currentlyLocked ? 'unlock' : 'lock';
+    document.getElementById('lock-modal-title').textContent = modalMode === 'lock' ? 'Lock Account' : 'Unlock Account';
+    document.getElementById('lock-modal-label').textContent = modalMode === 'lock'
+      ? `Lock account "${username}"? They will not be able to log in.`
+      : `Unlock account "${username}"? They will be able to log in again.`;
+    const btn = document.getElementById('lock-modal-confirm');
+    btn.style.background = modalMode === 'lock' ? 'var(--red)' : 'var(--orange)';
+    btn.style.color = '#000';
+    document.getElementById('lock-modal').style.display = 'flex';
+  }
+
+  function confirmDelete(username) {
+    modalTarget = username;
+    modalMode = 'delete';
+    document.getElementById('lock-modal-title').textContent = 'Delete User';
+    document.getElementById('lock-modal-label').textContent = `Delete "${username}"? This cannot be undone.`;
+    const btn = document.getElementById('lock-modal-confirm');
+    btn.style.background = 'var(--red)';
+    btn.style.color = '#fff';
+    document.getElementById('lock-modal').style.display = 'flex';
+  }
+
+  function closeLockModal() {
+    document.getElementById('lock-modal').style.display = 'none';
+    modalTarget = null;
+    modalMode = null;
+  }
+
+  async function submitConfirmAction() {
+    if (modalMode === 'delete') {
+      try {
+        const r = await fetch(L5 + '/admin/users/' + modalTarget, { method: 'DELETE', headers: authHeader() });
+        const d = await r.json();
+        if (d.ok) { showToast('User deleted: ' + modalTarget); closeLockModal(); loadUsers(); loadSessions(); }
+        else { showToast(d.error || 'Failed', false); }
+      } catch(e) { showToast('Network error', false); }
+    } else {
+      const lockAction = modalMode === 'lock';
+      try {
+        const r = await fetch(L5 + '/admin/users/' + modalTarget, {
+          method: 'PATCH', headers: authHeader(),
+          body: JSON.stringify({ accountLocked: lockAction })
+        });
+        const d = await r.json();
+        if (d.ok) { showToast(lockAction ? `${modalTarget} locked` : `${modalTarget} unlocked`); closeLockModal(); loadUsers(); }
+        else { showToast(d.error || 'Failed', false); }
+      } catch(e) { showToast('Network error', false); }
+    }
+  }
+
+  async function deleteUser(username) { confirmDelete(username); }
+
+  async function logout() {
+    await fetch(L5 + '/logout', { method: 'POST', headers: authHeader() }).catch(()=>{});
+    localStorage.removeItem('l5token');
+    localStorage.removeItem('musicui_authed');
+    window.location.href = '/login.html';
+  }
+
+  async function init() {
+    if (!token) { window.location.href = '/login.html'; return; }
+    try {
+      const r = await fetch(L5 + '/me', { headers: authHeader() });
+      const d = await r.json();
+      if (!d.ok) { window.location.href = '/login.html'; return; }
+      if (d.role !== 'admin') {
+        document.getElementById('access-denied').style.display = 'flex';
+        return;
+      }
+      currentUser = d.username;
+      isOwner = d.isOwner === true;
+      document.getElementById('main').style.display = 'block';
+      await loadPending();
+      loadUsers();
+      setInterval(loadPending, 30000);
+    } catch(e) {
+      window.location.href = '/login.html';
+    }
+  }
+
+  init();
+</script>
+</body>
+</html>

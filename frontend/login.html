@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+  <title>Sign In</title>
+  <link rel="icon" type="image/png" href="/favicon.png?v=b371" />
+  <link rel="stylesheet" href="styles.css?v=b371" />
+  <style>
+    .login-logo { width: 40px; height: 40px; border-radius: 10px; }
+    .login-modal-overlay { position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn .2s ease }
+    .login-modal { background:var(--bg-2);border:1px solid var(--stroke);border-radius:12px;padding:24px;width:100%;max-width:340px;text-align:center }
+    .login-modal h3 { margin:0 0 8px;font-size:16px }
+    .login-modal p { margin:0 0 20px;font-size:13px;color:var(--muted);line-height:1.5 }
+    .login-modal button { min-height:44px;padding:10px 24px;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;width:100% }
+    .login-modal.warn h3 { color:var(--accent) }
+    .login-modal.warn button { background:var(--accent);color:#000 }
+    .login-modal.danger h3 { color:#ef4444 }
+    .login-modal.danger button { background:#ef4444;color:#fff }
+    .login-modal.locked h3 { color:#ef4444 }
+    .login-modal.locked button { background:#333;color:var(--muted) }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+    .remember-label { display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin:-4px 0 8px;cursor:pointer;text-align:left }
+    .remember-label input[type="checkbox"] { width:auto;margin:0;padding:0;accent-color:var(--accent) }
+  </style>
+  <script>
+    // Theme presets — applied before render to prevent flash
+    window.L5_ACCENTS = {
+      orange: { accent:'#FF7A18', accent2:'#ff9a3c', weak:'rgba(255,122,24,.18)', glow:'rgba(255,122,24,.12)', focus:'rgba(255,122,24,.55)' },
+      blue:   { accent:'#3B82F6', accent2:'#60a5fa', weak:'rgba(59,130,246,.18)', glow:'rgba(59,130,246,.12)', focus:'rgba(59,130,246,.55)' },
+      purple: { accent:'#A855F7', accent2:'#c084fc', weak:'rgba(168,85,247,.18)', glow:'rgba(168,85,247,.12)', focus:'rgba(168,85,247,.55)' },
+      green:  { accent:'#22C55E', accent2:'#4ade80', weak:'rgba(34,197,94,.18)', glow:'rgba(34,197,94,.12)', focus:'rgba(34,197,94,.55)' },
+      red:    { accent:'#EF4444', accent2:'#f87171', weak:'rgba(239,68,68,.18)', glow:'rgba(239,68,68,.12)', focus:'rgba(239,68,68,.55)' },
+      pink:   { accent:'#EC4899', accent2:'#f472b6', weak:'rgba(236,72,153,.18)', glow:'rgba(236,72,153,.12)', focus:'rgba(236,72,153,.55)' }
+    };
+    window.L5_BGS = {
+      black:  { bg0:'#070707', bg1:'#0f0f10', bg2:'#151516', text0:'#f3f3f3', text1:'rgba(255,255,255,.72)', muted:'rgba(255,255,255,.45)', stroke:'rgba(255,255,255,.08)', overlay:'rgba(255,255,255,.06)', hoverBg:'rgba(255,255,255,.06)', hoverBorder:'rgba(255,255,255,.12)', hoverColor:'#ffffff', isDark:'1' },
+      gray:   { bg0:'#262626', bg1:'#2e2e2e', bg2:'#383838', text0:'#f3f3f3', text1:'rgba(255,255,255,.72)', muted:'rgba(255,255,255,.50)', stroke:'rgba(255,255,255,.10)', overlay:'rgba(255,255,255,.06)', hoverBg:'rgba(255,255,255,.08)', hoverBorder:'rgba(255,255,255,.14)', hoverColor:'#ffffff', isDark:'1' },
+      warm:   { bg0:'#f5f0e8', bg1:'#ece5d8', bg2:'#e0d6c4', text0:'#1a1a1a', text1:'rgba(0,0,0,.72)', muted:'rgba(0,0,0,.45)', stroke:'rgba(0,0,0,.10)', overlay:'rgba(0,0,0,.04)', hoverBg:'rgba(0,0,0,.06)', hoverBorder:'rgba(0,0,0,.12)', hoverColor:'#000000', isDark:'0' },
+      white:  { bg0:'#f8f8f8', bg1:'#f0f0f0', bg2:'#e8e8e8', text0:'#1a1a1a', text1:'rgba(0,0,0,.72)', muted:'rgba(0,0,0,.45)', stroke:'rgba(0,0,0,.10)', overlay:'rgba(0,0,0,.04)', hoverBg:'rgba(0,0,0,.06)', hoverBorder:'rgba(0,0,0,.12)', hoverColor:'#000000', isDark:'0' }
+    };
+    window.applyL5Theme = function() {
+      var r = document.documentElement.style;
+      var a = window.L5_ACCENTS[localStorage.getItem('l5_accent')] || window.L5_ACCENTS.orange;
+      var b = window.L5_BGS[localStorage.getItem('l5_bg')] || window.L5_BGS.black;
+      r.setProperty('--accent', a.accent); r.setProperty('--accent-2', a.accent2); r.setProperty('--accent-weak', a.weak);
+      r.setProperty('--accent-glow', a.glow); r.setProperty('--accent-focus', a.focus);
+      r.setProperty('--bg-0', b.bg0); r.setProperty('--bg-1', b.bg1); r.setProperty('--bg-2', b.bg2);
+      r.setProperty('--text-0', b.text0); r.setProperty('--text-1', b.text1); r.setProperty('--muted', b.muted); r.setProperty('--stroke', b.stroke);
+      r.setProperty('--overlay', b.overlay); r.setProperty('--hover-bg', b.hoverBg); r.setProperty('--hover-border', b.hoverBorder); r.setProperty('--hover-color', b.hoverColor);
+      document.documentElement.setAttribute('data-theme', b.isDark === '1' ? 'dark' : 'light');
+    };
+    applyL5Theme();
+  </script>
+  <script defer src="login.js?v=b371"></script>
+</head>
+<body class="login-page">
+  <div class="login-header">
+    <a href="#" target="_blank" rel="noopener noreferrer" class="login-logo-link">
+      <img src="assets/music_logo.png" alt="L5Music" class="login-logo" />
+      <span class="login-logo-text"><span style="font-weight:900;font-family:sans-serif;color:var(--text-0)">L5</span><span style="font-family:Didot,'Bodoni MT','Didot LT STD',serif;font-style:normal;font-weight:400;color:var(--accent)">Music</span></span>
+    </a>
+  </div>
+  <main class="login-container">
+    <section class="login-card" aria-labelledby="auth-heading">
+      <form
+        id="login-form"
+        class="login-form"
+        aria-describedby="login-help"
+      >
+        <h2 id="auth-heading">Sign In</h2>
+        <p id="login-help" class="login-subtitle">
+          Use your approved L5Music username and password.
+        </p>
+        <label for="username" class="sr-only">Username</label>
+        <input type="text" id="username" name="username" placeholder="Username" required autocomplete="username" />
+        <label class="remember-label"><input type="checkbox" id="remember-user" /> Remember username</label>
+        <label for="password" class="sr-only">Password</label>
+        <input type="password" id="password" name="password" placeholder="Password" required autocomplete="current-password" />
+        <div class="login-actions">
+          <button type="submit" class="btn btn-primary">Sign In</button>
+          <button type="button" id="open-signup" class="btn btn-secondary">Sign Up</button>
+        </div>
+      </form>
+
+      <form
+        id="signup-form"
+        class="signup-inline"
+        aria-describedby="signup-help"
+        hidden
+      >
+        <h3>Request Access</h3>
+        <p id="signup-help" class="login-subtitle">
+          Enter your email to request access. After approval, you&apos;ll receive a link to create your account.
+        </p>
+        <label for="signup-email" class="sr-only">Email</label>
+        <input
+          type="email"
+          id="signup-email"
+          name="email"
+          placeholder="Email address"
+          required
+          autocomplete="email"
+        />
+        <div class="login-actions">
+          <button type="submit" id="signup-submit" class="btn btn-primary">Submit</button>
+        </div>
+        <p id="signup-message" class="login-message" aria-live="polite"></p>
+      </form>
+    </section>
+    <p class="login-disclaimer"><strong>Private Service Notice:</strong> This service is operated for personal and family use only. Access is restricted to authorised users. Unauthorised access, sharing of credentials, or use of this service for any unlawful purpose is strictly prohibited. The operator of this service assumes no liability for any content streamed, stored, or accessed through third-party media servers connected herein. All media content is the property of its respective rights holders. By signing in, you confirm that you are an authorised user and agree to use this service solely for private, non-commercial purposes.</p>
+  </main>
+</body>
+</html>
