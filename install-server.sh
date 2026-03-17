@@ -112,7 +112,11 @@ pm2 save
 
 # Set up PM2 to start on boot
 info "Setting up auto-start on reboot..."
-pm2 startup 2>/dev/null | grep "sudo" | bash 2>/dev/null || true
+# Get the startup command and run it with sudo
+STARTUP_CMD=$(pm2 startup systemd -u "$(whoami)" --hp "$HOME" 2>/dev/null | grep "sudo" | head -1)
+if [ -n "$STARTUP_CMD" ]; then
+  eval "$STARTUP_CMD" 2>/dev/null || sudo env PATH=$PATH:$(dirname $(which pm2)) pm2 startup systemd -u "$(whoami)" --hp "$HOME" 2>/dev/null
+fi
 pm2 save
 
 echo ""
