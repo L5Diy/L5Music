@@ -191,3 +191,20 @@ L5Music/
 ---
 
 <p align="center">MIT License © 2026 L5Diy</p>
+
+
+---
+
+## Known Limitations
+
+### iOS PWA Lock Screen Controls
+
+On iOS 26+ standalone PWAs, lock screen media controls do not respond. Apple suspends the PWA JS context when backgrounded.
+
+**Works:** Background audio plays, lock screen shows song info and cover art, Android works fully.
+
+**Broken:** Tapping play/pause/next/prev on iOS lock screen does nothing. Applies to both Safari and Chrome installed PWAs.
+
+**Workaround:** Use L5Music in a browser tab instead of the installed PWA — lock screen controls work in tabs.
+
+Tracked at [webkit.org/b/198277](https://bugs.webkit.org/show_bug.cgi?id=198277).

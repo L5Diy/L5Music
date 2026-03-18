@@ -1,9 +1,9 @@
-/* L5Music — app.js v1
+/* LaowuDIY L5Music — app.js v1
  * Single entry point. Boots desktop or mobile app based on window width.
  * IS_MOBILE is set by the inline script in index.html before this loads.
  */
 'use strict';
-const APP_VERSION = 'b371';
+const APP_VERSION = 'b383';
 
 /* ── L5 MODAL SYSTEM (replaces window.prompt/confirm) ──────────────── */
 function _l5modal(title, bodyHtml, buttons) {
@@ -65,23 +65,6 @@ async function l5get(path) {
   const data = await resp.json();
   if (!data.ok) throw new Error(data.error || 'API error');
   return data;
-}
-
-// ── Dynamic folder list (fetched from backend) ──
-let _cachedFolders = ['default'];
-async function fetchFolders() {
-  try {
-    const data = await l5get('/folders');
-    _cachedFolders = data.folders || ['default'];
-  } catch (e) { _cachedFolders = ['default']; }
-  return _cachedFolders;
-}
-function folderLabel(f) { return f === 'default' ? 'Default' : f.charAt(0).toUpperCase() + f.slice(1); }
-function buildModeButtons(mode, cssClass) {
-  return _cachedFolders.map(f => '<button class="' + cssClass + ' mode-btn' + (mode === f ? ' active' : '') + '" data-mode="' + f + '">' + folderLabel(f) + '</button>').join('\n        ');
-}
-function buildDestButtons(cssClass) {
-  return _cachedFolders.map(f => '<button type="button" class="' + cssClass + '" data-yt-dest="' + f + '">' + folderLabel(f) + '</button>').join('\n                ');
 }
 
 /* ── Custom dialog helpers (replace native confirm/prompt/alert) ── */
@@ -364,8 +347,13 @@ function initMobile() {
   audio.addEventListener("playing", () => {
     const s = currentQueue[currentIndex];
     if (s && "mediaSession" in navigator) {
-      const artUrl = location.origin + coverUrl(s.id);
-      navigator.mediaSession.metadata = new MediaMetadata({ title: s.title || "Unknown", artist: s.artist || "", album: s.album || "", artwork: [{ src: artUrl, sizes: "512x512", type: "image/jpeg" }] });
+      if (audio._lastMsId !== s.id) {
+        audio._lastMsId = s.id;
+        const artUrl = location.origin + coverUrl(s.id);
+        navigator.mediaSession.metadata = new MediaMetadata({ title: s.title || "Unknown", artist: s.artist || "", album: s.album || "", artwork: [{ src: artUrl, sizes: "512x512", type: "image/jpeg" }] });
+      }
+      navigator.mediaSession.setActionHandler("play", () => { const t = audio.currentTime; audio.play().catch(() => { audio.load(); audio.currentTime = t; audio.play(); }); });
+      navigator.mediaSession.setActionHandler("pause", () => { audio.pause(); });
       navigator.mediaSession.setActionHandler("previoustrack", () => playPrev());
       navigator.mediaSession.setActionHandler("nexttrack", () => playNext());
     }
@@ -587,18 +575,6 @@ function initMobile() {
     const song = currentQueue[currentIndex];
     logShuffleSong(song.id, songs.length);
     localStorage.setItem('l5_last_song', String(song.id));
-    // Media Session — set BEFORE play for iOS
-    if ("mediaSession" in navigator) {
-      const artUrl = location.origin + coverUrl(song.coverArt || song.id);
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: song.title || "Unknown", artist: song.artist || "", album: song.album || "",
-        artwork: artUrl ? [{ src: artUrl, sizes: "96x96", type: "image/jpeg" },{ src: artUrl, sizes: "256x256", type: "image/jpeg" },{ src: artUrl, sizes: "512x512", type: "image/jpeg" }] : []
-      });
-      navigator.mediaSession.setActionHandler("play", () => { const t = audio.currentTime; audio.play().catch(() => { audio.load(); audio.currentTime = t; audio.play(); }); });
-      navigator.mediaSession.setActionHandler("pause", () => { audio.pause(); });
-      navigator.mediaSession.setActionHandler("previoustrack", () => playPrev());
-      navigator.mediaSession.setActionHandler("nexttrack", () => playNext());
-    }
     audio.src = streamUrl(song.id);
     document.getElementById("mobile-app")?.classList.add("has-track");
     audio.load();
@@ -1473,7 +1449,10 @@ function initMobile() {
     mainContent.innerHTML = `
       <div class="section-header" style="display:flex;justify-content:space-between;align-items:center"><span>MUSIC MODE</span><span style="font-size:11px;color:var(--muted);font-weight:normal">${APP_VERSION}</span></div>
       <div class="settings-row" style="gap:8px;flex-wrap:wrap">
-        ${buildModeButtons(mode, 'settings-chip-btn')}
+        <button class="settings-chip-btn mode-btn${mode==='default'?' active':''}" data-mode="default">Default</button>
+        <button class="settings-chip-btn mode-btn${mode==='pop'?' active':''}" data-mode="pop">Pop</button>
+        <button class="settings-chip-btn mode-btn${mode==='boost'?' active':''}" data-mode="boost">Boost</button>
+        <button class="settings-chip-btn mode-btn${mode==='littlestar'?' active':''}" data-mode="littlestar">Little Star</button>
       </div>
       <div class="section-header">ACCENT</div>
       <div class="settings-row" style="gap:10px;flex-wrap:wrap">
@@ -1717,7 +1696,10 @@ function initMobile() {
       <h2 style="font-size:1.1rem;margin-bottom:12px">YTMP3 Downloader</h2>
       <input type="text" id="m-ytmp3-url" placeholder="Paste YouTube URL" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--stroke);background:var(--bg-1);color:var(--text-0);font-size:0.9rem;box-sizing:border-box;margin-bottom:10px" />
       <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
-        ${buildDestButtons('btn btn-chip')}
+        <button type="button" class="btn btn-chip" data-yt-dest="default">Default</button>
+        <button type="button" class="btn btn-chip" data-yt-dest="pop">Pop</button>
+        <button type="button" class="btn btn-chip" data-yt-dest="boost">Boost</button>
+        <button type="button" class="btn btn-chip" data-yt-dest="littlestar">Little Star</button>
         <button type="button" class="btn btn-chip" id="m-ytmp3-start">Download</button>
       </div>
       <div id="m-ytmp3-status" style="font-size:0.85rem;color:var(--muted)"></div>
@@ -2089,7 +2071,10 @@ function initDesktop() {
               '<div class="settings-row" style="gap:10px;flex-wrap:wrap;align-items:center">' +
                 '<input type="text" id="ytmp3-url" placeholder="Paste YouTube URL" style="flex:1;min-width:220px;padding:10px 12px;border-radius:8px;border:1px solid var(--stroke);background:var(--bg-1);color:var(--text-0);font-size:0.9rem;" />' +
                 '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
-                  buildDestButtons('btn btn-chip').replace(/data-yt-dest/g, 'data-ytmp3-dest') +
+                  '<button type="button" class="btn btn-chip" data-ytmp3-dest="default">Default</button>' +
+                  '<button type="button" class="btn btn-chip" data-ytmp3-dest="pop">Pop</button>' +
+                  '<button type="button" class="btn btn-chip" data-ytmp3-dest="boost">Boost</button>' +
+                  '<button type="button" class="btn btn-chip" data-ytmp3-dest="littlestar">Little Star</button>' +
                 '</div>' +
                 '<button type="button" class="btn btn-chip" id="ytmp3-start-btn">Download</button>' +
               '</div>' +
@@ -2513,7 +2498,10 @@ function initDesktop() {
     let html = renderViewHeader('Settings');
     html += `<div class="section"><div style="display:flex;justify-content:space-between;align-items:center"><div class="section-title">Music Mode</div><div style="font-size:11px;color:var(--muted)">${APP_VERSION}</div></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;padding:8px 0">
-        ${buildModeButtons(mode, 'btn-chip')}
+        <button class="btn-chip mode-btn${mode==='default'?' active':''}" data-mode="default">Default</button>
+        <button class="btn-chip mode-btn${mode==='pop'?' active':''}" data-mode="pop">Pop</button>
+        <button class="btn-chip mode-btn${mode==='boost'?' active':''}" data-mode="boost">Boost</button>
+        <button class="btn-chip mode-btn${mode==='littlestar'?' active':''}" data-mode="littlestar">Little Star</button>
       </div></div>`;
     html += '<div class="section"><div class="section-title">Accent</div><div style="display:flex;gap:10px;flex-wrap:wrap;padding:8px 0">';
     html += Object.entries(L5_ACCENTS).map(([k,v]) => '<div class="theme-dot'+(curAccent===k?' active':'')+'" data-accent="'+k+'" style="width:28px;height:28px;border-radius:50%;background:'+v.accent+';cursor:pointer;border:2px solid '+(curAccent===k?'#fff':'transparent')+'"></div>').join('');
@@ -2877,6 +2865,21 @@ function initDesktop() {
   audio.addEventListener('play', () => { playBtn.classList.add('playing'); const idx = currentQueue[currentIndex]; const s = idx != null ? songs[idx] : null; if (s) sendPlayState(s.id, currentQueue.map(i => songs[i]?.id).filter(Boolean), currentIndex, true, audio.currentTime); });
   audio.addEventListener('pause', () => { playBtn.classList.remove('playing'); const idx = currentQueue[currentIndex]; const s = idx != null ? songs[idx] : null; if (s) sendPlayState(s.id, currentQueue.map(i => songs[i]?.id).filter(Boolean), currentIndex, false, audio.currentTime); });
   audio.addEventListener('ended', () => playNext());
+  audio.addEventListener("playing", () => {
+    const idx = currentQueue[currentIndex];
+    const s = idx != null ? songs[idx] : null;
+    if (s && "mediaSession" in navigator) {
+      if (audio._lastMsId !== s.id) {
+        audio._lastMsId = s.id;
+        const artUrl = s.coverUrl || "assets/music_logo.png";
+        navigator.mediaSession.metadata = new MediaMetadata({ title: s.title || "Unknown", artist: s.artist || "", album: s.album || "", artwork: [{ src: artUrl, sizes: "512x512", type: "image/jpeg" }] });
+      }
+      navigator.mediaSession.setActionHandler("play", () => { audio.play().catch(err => console.error(err)); });
+      navigator.mediaSession.setActionHandler("pause", () => { audio.pause(); });
+      navigator.mediaSession.setActionHandler("previoustrack", () => playPrev());
+      navigator.mediaSession.setActionHandler("nexttrack", () => playNext());
+    }
+  });
 
   playBtn.addEventListener('click', () => {
     if (audio.src && !audio.paused) { audio.pause(); playBtn.classList.remove('playing'); }
@@ -2996,7 +2999,7 @@ function initDesktop() {
 
   (async () => {
     applyMenuPreferences();
-    await Promise.all([fetchFolders(), fetchData(), loadBlockedSongs(), loadShuffleLog(), syncRole()]);
+    await Promise.all([fetchData(), loadBlockedSongs(), loadShuffleLog(), syncRole()]);
     loadView('now-playing');
   })();
 
