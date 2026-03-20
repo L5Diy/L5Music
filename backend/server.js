@@ -229,26 +229,31 @@ app.post('/login', async (req, res) => {
   if (!username || !password) return res.status(400).json({ ok: false, error: 'username and password required' });
 
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+  const IP_WHITELIST = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+  const isWhitelisted = IP_WHITELIST.includes(ip) || ip.startsWith('192.168.') || ip.startsWith('::ffff:192.168.');
   const now = Date.now();
-  if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, lockedUntil: 0, phase: 1 };
-  const att = loginAttempts[ip];
 
-  // Currently IP-locked?
-  if (att.lockedUntil && now < att.lockedUntil) {
-    const minsLeft = Math.ceil((att.lockedUntil - now) / 60000);
-    return res.status(429).json({ ok: false, error: `Too many failed attempts. Try again in ${minsLeft} minute${minsLeft !== 1 ? 's' : ''}.` });
-  }
+  if (!isWhitelisted) {
+    if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, lockedUntil: 0, phase: 1 };
+    const att = loginAttempts[ip];
 
-  // IP lock just expired → reset count, advance to phase 2
-  if (att.lockedUntil && now >= att.lockedUntil) {
-    att.count = 0;
-    att.lockedUntil = 0;
-    att.phase = 2;
+    // Currently IP-locked?
+    if (att.lockedUntil && now < att.lockedUntil) {
+      const minsLeft = Math.ceil((att.lockedUntil - now) / 60000);
+      return res.status(429).json({ ok: false, error: `Too many failed attempts. Try again in ${minsLeft} minute${minsLeft !== 1 ? 's' : ''}.` });
+    }
+
+    // IP lock just expired → reset count, advance to phase 2
+    if (att.lockedUntil && now >= att.lockedUntil) {
+      att.count = 0;
+      att.lockedUntil = 0;
+      att.phase = 2;
+    }
   }
 
   const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
 
-  // Account locked?
+  // Account locked? (applies even on whitelisted IPs)
   if (user && user.accountLocked) {
     return res.status(403).json({ ok: false, error: 'Account locked. Contact admin.' });
   }
@@ -256,28 +261,29 @@ app.post('/login', async (req, res) => {
   const match = user && await bcrypt.compare(password, user.passwordHash);
 
   if (!user || !match) {
-    att.count++;
-    if (att.count >= MAX_ATTEMPTS) {
-      if (att.phase === 2 && user) {
-        // Phase 2: permanently lock the account
-        user.accountLocked = true;
-        saveData('users.json', users);
-        att.count = 0;
-        att.lockedUntil = 0;
-        return res.status(403).json({ ok: false, error: 'Account locked due to too many failed attempts. Contact admin.' });
-      } else {
-        // Phase 1: IP lock for 30 minutes
-        att.lockedUntil = now + IP_LOCK_MS;
-        att.count = 0;
-        return res.status(429).json({ ok: false, error: 'Too many failed attempts. IP locked for 30 minutes.' });
+    if (!isWhitelisted) {
+      const att = loginAttempts[ip];
+      att.count++;
+      if (att.count >= MAX_ATTEMPTS) {
+        if (att.phase === 2 && user) {
+          user.accountLocked = true;
+          saveData('users.json', users);
+          att.count = 0; att.lockedUntil = 0;
+          return res.status(403).json({ ok: false, error: 'Account locked due to too many failed attempts. Contact admin.' });
+        } else {
+          att.lockedUntil = now + IP_LOCK_MS;
+          att.count = 0;
+          return res.status(429).json({ ok: false, error: 'Too many failed attempts. IP locked for 30 minutes.' });
+        }
       }
+      const remaining = MAX_ATTEMPTS - att.count;
+      return res.status(401).json({ ok: false, error: `Invalid username or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.` });
     }
-    const remaining = MAX_ATTEMPTS - att.count;
-    return res.status(401).json({ ok: false, error: `Invalid username or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.` });
+    return res.status(401).json({ ok: false, error: 'Invalid username or password.' });
   }
 
   // Success — clear rate limit for this IP
-  delete loginAttempts[ip];
+  if (!isWhitelisted) delete loginAttempts[ip];
 
   user.lastLoginAt = Date.now();
   saveData('users.json', users);
@@ -932,6 +938,29 @@ app.post('/admin/reject-signup', requireAdmin, (req, res) => {
   pendingSignups.splice(idx, 1);
   saveData('pending_signups.json', pendingSignups);
   res.json({ ok: true, message: 'Rejected and removed' });
+});
+
+// ── GET blocked IPs and locked accounts (admin) ──
+app.get('/admin/blocked-ips', requireAdmin, (req, res) => {
+  const now = Date.now();
+  const ips = [];
+  for (const [ip, att] of Object.entries(loginAttempts)) {
+    if (att.lockedUntil && now < att.lockedUntil) {
+      ips.push({ ip, type: 'ip-lock', lockedUntil: att.lockedUntil, phase: att.phase, minsLeft: Math.ceil((att.lockedUntil - now) / 60000) });
+    }
+  }
+  const locked = users.filter(u => u.accountLocked).map(u => ({ ip: u.username, type: 'account-lock', username: u.username }));
+  res.json({ ok: true, blocked: [...ips, ...locked] });
+});
+
+// ── POST unblock IP or unlock account (admin) ──
+app.post('/admin/unblock-ip', requireAdmin, (req, res) => {
+  const { ip } = req.body;
+  if (!ip) return res.status(400).json({ ok: false, error: 'IP required' });
+  if (loginAttempts[ip]) { delete loginAttempts[ip]; return res.json({ ok: true, message: 'IP unlocked' }); }
+  const user = users.find(u => u.username === ip && u.accountLocked);
+  if (user) { user.accountLocked = false; saveData('users.json', users); return res.json({ ok: true, message: 'Account unlocked' }); }
+  res.status(404).json({ ok: false, error: 'Not found' });
 });
 
 // -- VALIDATE setup token (public) --
