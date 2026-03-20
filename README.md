@@ -62,6 +62,22 @@ The installer will walk you through setting up the backend and frontend. Pick op
 
 ---
 
+## Security
+
+| Feature | Description |
+|---------|-------------|
+| **Authentication** | Every API endpoint requires a valid session token. Streaming and cover art use token query params for `<audio>`/`<img>` compatibility. |
+| **Password Hashing** | bcrypt with 12 salt rounds. Passwords are never stored in plain text. |
+| **Login Rate Limiting** | 3 failed attempts → 30-minute IP lock. 3 more after unlock → account permanently locked. |
+| **IP Whitelist** | Local/LAN IPs (`127.0.0.1`, `192.168.x.x`) are exempt from rate limiting — you can't lock yourself out from home. |
+| **Blocked IPs Dashboard** | Admins can view and unblock locked IPs and locked accounts via `/admin/blocked-ips`. |
+| **Security Headers** | Helmet.js adds `X-Frame-Options`, `Strict-Transport-Security`, `X-Content-Type-Options`, `Referrer-Policy`, and more. |
+| **Session Management** | Tokens are `crypto.randomBytes(48)`. 30-day expiry. Max 10 sessions per user. Expired sessions cleaned automatically. |
+| **Role-Based Access** | Admin-only endpoints for user management, song deletion, and signup approval. |
+| **Signup Flow** | Email-based signup requests require admin approval. Setup links expire in 24 hours. Rate-limited to 3 per hour per IP. |
+
+---
+
 ## Requirements
 
 - Raspberry Pi (or any Linux machine) with a Debian-based OS
