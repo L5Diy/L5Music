@@ -1,14 +1,14 @@
 /*
  * Base stylesheet for the self‑hosted hub.
  *
- * The design intentionally echoes the dark, modern look of LaowuDIY.com
+ * The design intentionally echoes a dark, modern music streaming look.
  * while remaining fully responsive.  Colours can be adjusted here to
  * match your preferred palette.  When the user supplies their own
  * avatar.png and background.png files they will automatically be
  * displayed in place of the placeholders.
  */
 
-/* LaowuDIY theme tokens (orange/black) */
+/* L5Music theme tokens (orange/black) */
 :root {
   --bg-0: #070707;
   --bg-1: #0f0f10;
@@ -207,7 +207,7 @@ body.login-page {
   padding: 1.75rem 1.5rem 1.6rem;
 }
 
-/* Top‑right avatar and LaowuDIY link on the login page */
+/* Top-right avatar and L5Music link on the login page */
 .login-header {
   position: absolute;
   top: 1rem;
@@ -1757,7 +1757,7 @@ input[type="range"]::-moz-range-track {
   .toolbar-right { width: 100%; justify-content: flex-end; }
 }
 
-/* LaowuDIY theme overrides */
+/* L5Music theme overrides */
 body { background: radial-gradient(1200px 700px at 15% 0%, var(--accent-glow), transparent 55%), var(--bg-0) !important; color: var(--text-0) !important; }
 
 .app-shell .sidebar { background: linear-gradient(180deg, var(--overlay), var(--overlay)) !important; background-image: none !important; border-right: 1px solid var(--stroke); }

@@ -3,7 +3,7 @@
  * IS_MOBILE is set by the inline script in index.html before this loads.
  */
 'use strict';
-const APP_VERSION = 'b374';
+const APP_VERSION = 'b383';
 
 /* ── L5 MODAL SYSTEM (replaces window.prompt/confirm) ──────────────── */
 function _l5modal(title, bodyHtml, buttons) {
@@ -1604,36 +1604,17 @@ function initMobile() {
       // loadLibrary already showed error in overlay
     }
   }
-  async function renderAdminView() {
-    try { const r = await fetch(L5_BASE+"/me",{headers:{"Authorization":"Bearer "+l5token()}}); const d = await r.json(); if (d.isOwner) localStorage.setItem("l5_isOwner","1"); } catch(e) {}
+  function renderAdminView() {
     const mc = document.getElementById('main-content') || mainView;
     const isOwnerUser = localStorage.getItem('l5_isOwner') === '1';
     mc.innerHTML = '<div style="padding:16px"><h2 style="font-size:1.1rem;margin-bottom:16px">Admin Dashboard</h2>' +
       '<div style="margin-bottom:20px"><h3 style="font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Pending Signup Requests</h3><div id="adm-pending">Loading...</div></div>' +
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h3 style="font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Users</h3><button id="adm-add-btn" class="btn btn-chip" style="font-size:0.8rem;padding:4px 12px">+ Add User</button></div>' +
       '<div id="adm-users">Loading...</div>' +
-      (isOwnerUser ? '<div style="margin-top:16px"><h3 style="font-size:0.85rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Blocked IPs / Locked Accounts</h3><div id="adm-bip-list">Loading...</div></div>' : '') +
       '</div>';
     loadAdminPending();
     loadAdminUsers();
     document.getElementById('adm-add-btn').addEventListener('click', showAddUserModal);
-    if (isOwnerUser) loadAdminBlockedIps();
-  }
-  async function loadAdminBlockedIps() {
-    try {
-      const d = await l5get('/admin/blocked-ips');
-      const wrap = document.getElementById('adm-bip-list'); if (!wrap) return;
-      if (!d.blocked?.length) { wrap.innerHTML = '<div style="color:var(--muted);font-size:0.85rem">No blocked IPs or locked accounts</div>'; return; }
-      wrap.innerHTML = d.blocked.map(b => {
-        const label = b.type === 'account-lock' ? b.username + ' <span style="color:var(--muted);font-size:0.78rem">(account locked)</span>' : b.ip + ' <span style="color:var(--muted);font-size:0.78rem">(IP lock — ' + (b.minsLeft||0) + 'min left)</span>';
-        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--stroke)"><span style="font-size:0.9rem">' + label + '</span><button class="btn btn-chip adm-unblock" data-ip="' + b.ip + '" style="font-size:0.78rem;padding:3px 10px;color:var(--accent);border-color:var(--accent)">Unblock</button></div>';
-      }).join('');
-      wrap.querySelectorAll('.adm-unblock').forEach(btn => btn.addEventListener('click', async () => {
-        if (!await l5confirm('Unblock ' + btn.dataset.ip + '?')) return;
-        const r = await fetch(L5_BASE + '/admin/unblock-ip', { method: 'POST', headers: l5headers(), body: JSON.stringify({ ip: btn.dataset.ip }) });
-        const d = await r.json(); showToast(d.ok ? (d.message||'Unblocked') : (d.error||'Failed')); loadAdminBlockedIps();
-      }));
-    } catch(e) { console.error(e); }
   }
   async function loadAdminPending() {
     try {
@@ -2617,18 +2598,15 @@ function initDesktop() {
     });
   }
 
-  async function renderDesktopAdmin() {
-    try { const r = await fetch(L5_BASE+"/me",{headers:{"Authorization":"Bearer "+l5token()}}); const d = await r.json(); if (d.isOwner) localStorage.setItem("l5_isOwner","1"); } catch(e) {}
+  function renderDesktopAdmin() {
     const isOwnerUser = localStorage.getItem('l5_isOwner') === '1';
     const me = localStorage.getItem('l5user');
     let html = renderViewHeader('Admin Dashboard');
     html += '<div class="section"><div style="display:flex;justify-content:space-between;align-items:center"><div class="section-title">Pending Signup Requests</div></div><div id="dadm-pending">Loading...</div></div>';
     html += '<div class="section"><div style="display:flex;justify-content:space-between;align-items:center"><div class="section-title">Users</div><button class="btn-chip" id="dadm-add-btn" style="font-size:0.85rem">+ Add User</button></div><div id="dadm-users">Loading...</div></div>';
-    if (isOwnerUser) html += '<div class="section"><div class="section-title">Blocked IPs / Locked Accounts</div><div id="dadm-bip-list">Loading...</div></div>';
     mainView.innerHTML = html;
     dadmLoadPending();
     dadmLoadUsers(me, isOwnerUser);
-    if (isOwnerUser) dadmLoadBlockedIps();
     document.getElementById('dadm-add-btn')?.addEventListener('click', async () => {
       const result = await l5promptTwo('Add User', 'Username', 'Password (min 6)', { submitLabel: 'Create' });
       if (!result) return;
@@ -2703,22 +2681,6 @@ function initDesktop() {
         const d = await r.json(); showDesktopToast(d.ok ? 'Deleted' : (d.error||'Failed')); renderDesktopAdmin();
       }));
     });
-  }
-  function dadmLoadBlockedIps() {
-    fetch(L5_BASE + '/admin/blocked-ips', { headers: { 'Authorization': 'Bearer ' + l5token() } })
-      .then(r => r.json()).then(d => {
-        const wrap = document.getElementById('dadm-bip-list'); if (!wrap) return;
-        if (!d.ok || !d.blocked?.length) { wrap.innerHTML = '<p style="color:var(--muted);font-size:0.9rem;padding:8px 0">No blocked IPs or locked accounts</p>'; return; }
-        wrap.innerHTML = d.blocked.map(b => {
-          const label = b.type === 'account-lock' ? b.username + ' <span style="color:var(--muted);font-size:0.78rem">(account locked)</span>' : b.ip + ' <span style="color:var(--muted);font-size:0.78rem">(IP lock — ' + (b.minsLeft || 0) + 'min left)</span>';
-          return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--stroke)"><span>' + label + '</span><button class="btn-chip dadm-unblock" data-ip="' + escapeHtml(b.ip) + '" style="font-size:0.78rem;padding:3px 10px;color:var(--accent);border-color:var(--accent)">Unblock</button></div>';
-        }).join('');
-        wrap.querySelectorAll('.dadm-unblock').forEach(btn => btn.addEventListener('click', async () => {
-          if (!await l5confirm('Unblock ' + btn.dataset.ip + '?')) return;
-          const r = await fetch(L5_BASE + '/admin/unblock-ip', { method: 'POST', headers: l5headers(), body: JSON.stringify({ ip: btn.dataset.ip }) });
-          const d = await r.json(); showDesktopToast(d.ok ? (d.message || 'Unblocked') : (d.error || 'Failed')); dadmLoadBlockedIps();
-        }));
-      });
   }
 
   function renderNowPlaying() {

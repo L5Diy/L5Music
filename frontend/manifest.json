@@ -1,7 +1,7 @@
 {
   "name": "L5Music",
   "short_name": "L5Music",
-  "description": "Personal music streaming for LaowuDIY",
+  "description": "Self-hosted music streaming PWA",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

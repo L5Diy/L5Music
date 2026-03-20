@@ -1,12 +1,12 @@
-/* L5Music PWA — sw.js b124 */
+/* L5Music PWA — sw.js b121 */
 
-const CACHE = 'l5music-b374';
+const CACHE = 'l5music-b383';
 const SHELL = [
   '/',
   '/index.html',
-  '/app.js?v=b374',
+  '/app.js?v=b373',
   '/styles.css?v=b360',
-  '/pwa.css?v=b374',
+  '/pwa.css?v=b383',
   '/login.js?v=b360',
   '/login.html',
   '/manifest.json',
