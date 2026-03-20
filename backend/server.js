@@ -1,5 +1,4 @@
 'use strict';
-require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
@@ -14,33 +13,19 @@ const helmet = require("helmet");
 
 const app = express();
 app.use(express.json());
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, crossOriginResourcePolicy: false }));
 
-const PORT = parseInt(process.env.PORT) || 3002;
-const MUSIC_DIR = process.env.MUSIC_DIR || '/home/pi/music';
+const PORT = 3002;
+const MUSIC_DIR = '/home/sky0401/music';
 // ── yt-dlp direct download config ──
 const YTDLP_BIN = '/usr/local/bin/yt-dlp';
-const YTDLP_ARCHIVE = path.join(__dirname, 'yt-dlp-archive.txt');
-// Dynamic folder detection — scans MUSIC_DIR for subfolders
-function getSubfolders() {
-  try {
-    return fs.readdirSync(MUSIC_DIR, { withFileTypes: true })
-      .filter(d => d.isDirectory())
-      .map(d => d.name);
-  } catch (e) { return []; }
-}
-function getDestDir(folder) {
-  if (!folder || folder === 'default') return MUSIC_DIR;
-  const sub = path.join(MUSIC_DIR, folder);
-  if (!fs.existsSync(sub)) fs.mkdirSync(sub, { recursive: true });
-  return sub;
-}
+const YTDLP_ARCHIVE = '/srv/www/laowudiy/l5music-core/yt-dlp-archive.txt';
+const DEST_DIRS = { default: MUSIC_DIR, pop: path.join(MUSIC_DIR, 'pop'), boost: path.join(MUSIC_DIR, 'boost'), littlestar: path.join(MUSIC_DIR, 'littlestar') };
 const ytJobs = new Map();
 const VERSION = 'b49';
 const DATA_DIR = path.join(__dirname, 'data');
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_PASS = process.env.GMAIL_PASS;
-const DOMAIN = process.env.DOMAIN || 'localhost';
 const mailer = nodemailer.createTransport({ service: 'gmail', auth: { user: GMAIL_USER, pass: GMAIL_PASS } });
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
@@ -214,6 +199,16 @@ app.get('/ping', (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/folders', (req, res) => {
+  const fs = require('fs'), path = require('path');
+  try {
+    const dirs = fs.readdirSync(MUSIC_DIR, {withFileTypes:true})
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+    res.json({ ok: true, folders: ['default', ...dirs] });
+  } catch(e) { res.json({ ok: true, folders: ['default'] }); }
+});
+
 // ─── LOGIN RATE LIMITING ──────────────────────────────────────────────────────
 // Per-IP tracking: 3 fails → IP locked 30 min (phase 1)
 // After IP lock expires: 3 more fails → account permanently locked (phase 2)
@@ -229,26 +224,31 @@ app.post('/login', async (req, res) => {
   if (!username || !password) return res.status(400).json({ ok: false, error: 'username and password required' });
 
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+  const IP_WHITELIST = ["127.0.0.1", "::1", "::ffff:127.0.0.1"];
+  const isWhitelisted = IP_WHITELIST.includes(ip) || ip.startsWith("192.168.") || ip.startsWith("::ffff:192.168.");
   const now = Date.now();
-  if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, lockedUntil: 0, phase: 1 };
-  const att = loginAttempts[ip];
 
-  // Currently IP-locked?
-  if (att.lockedUntil && now < att.lockedUntil) {
-    const minsLeft = Math.ceil((att.lockedUntil - now) / 60000);
-    return res.status(429).json({ ok: false, error: `Too many failed attempts. Try again in ${minsLeft} minute${minsLeft !== 1 ? 's' : ''}.` });
-  }
+  if (!isWhitelisted) {
+    if (!loginAttempts[ip]) loginAttempts[ip] = { count: 0, lockedUntil: 0, phase: 1 };
+    const att = loginAttempts[ip];
 
-  // IP lock just expired → reset count, advance to phase 2
-  if (att.lockedUntil && now >= att.lockedUntil) {
-    att.count = 0;
-    att.lockedUntil = 0;
-    att.phase = 2;
+    // Currently IP-locked?
+    if (att.lockedUntil && now < att.lockedUntil) {
+      const minsLeft = Math.ceil((att.lockedUntil - now) / 60000);
+      return res.status(429).json({ ok: false, error: `Too many failed attempts. Try again in ${minsLeft} minute${minsLeft !== 1 ? 's' : ''}.` });
+    }
+
+    // IP lock just expired → reset count, advance to phase 2
+    if (att.lockedUntil && now >= att.lockedUntil) {
+      att.count = 0;
+      att.lockedUntil = 0;
+      att.phase = 2;
+    }
   }
 
   const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
 
-  // Account locked?
+  // Account locked? (still applies to whitelisted IPs)
   if (user && user.accountLocked) {
     return res.status(403).json({ ok: false, error: 'Account locked. Contact admin.' });
   }
@@ -256,28 +256,30 @@ app.post('/login', async (req, res) => {
   const match = user && await bcrypt.compare(password, user.passwordHash);
 
   if (!user || !match) {
-    att.count++;
-    if (att.count >= MAX_ATTEMPTS) {
-      if (att.phase === 2 && user) {
-        // Phase 2: permanently lock the account
-        user.accountLocked = true;
-        saveData('users.json', users);
-        att.count = 0;
-        att.lockedUntil = 0;
-        return res.status(403).json({ ok: false, error: 'Account locked due to too many failed attempts. Contact admin.' });
-      } else {
-        // Phase 1: IP lock for 30 minutes
-        att.lockedUntil = now + IP_LOCK_MS;
-        att.count = 0;
-        return res.status(429).json({ ok: false, error: 'Too many failed attempts. IP locked for 30 minutes.' });
+    if (!isWhitelisted) {
+      const att = loginAttempts[ip];
+      att.count++;
+      if (att.count >= MAX_ATTEMPTS) {
+        if (att.phase === 2 && user) {
+          user.accountLocked = true;
+          saveData('users.json', users);
+          att.count = 0;
+          att.lockedUntil = 0;
+          return res.status(403).json({ ok: false, error: 'Account locked due to too many failed attempts. Contact admin.' });
+        } else {
+          att.lockedUntil = now + IP_LOCK_MS;
+          att.count = 0;
+          return res.status(429).json({ ok: false, error: 'Too many failed attempts. IP locked for 30 minutes.' });
+        }
       }
+      const remaining = MAX_ATTEMPTS - att.count;
+      return res.status(401).json({ ok: false, error: `Invalid username or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.` });
     }
-    const remaining = MAX_ATTEMPTS - att.count;
-    return res.status(401).json({ ok: false, error: `Invalid username or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.` });
+    return res.status(401).json({ ok: false, error: 'Invalid username or password.' });
   }
 
   // Success — clear rate limit for this IP
-  delete loginAttempts[ip];
+  if (!isWhitelisted) delete loginAttempts[ip];
 
   user.lastLoginAt = Date.now();
   saveData('users.json', users);
@@ -392,19 +394,17 @@ app.get('/rescan', requireAuth, async (req, res) => {
   res.json({ ok: true, songs: library.length });
 });
 
-app.get('/folders', requireAuth, (req, res) => {
-  const subs = getSubfolders();
-  res.json({ ok: true, folders: ['default', ...subs] });
-});
-
 app.get('/songs', requireAuth, (req, res) => {
   let songs = library;
 
-  if (req.query.folder && req.query.folder !== 'default') {
-    songs = songs.filter(s => s.path.startsWith(req.query.folder + '/'));
+  if (req.query.folder === 'pop') {
+    songs = songs.filter(s => s.path.startsWith('pop/'));
+  } else if (req.query.folder === 'boost') {
+    songs = songs.filter(s => s.path.startsWith('boost/'));
+  } else if (req.query.folder === 'littlestar') {
+    songs = songs.filter(s => s.path.startsWith('littlestar/'));
   } else if (!req.query.folder || req.query.folder === 'default') {
-    const subs = getSubfolders();
-    songs = songs.filter(s => !subs.some(f => s.path.startsWith(f + '/')));
+    songs = songs.filter(s => !s.path.includes('/'));
   }
 
   if (req.query.search) {
@@ -461,11 +461,14 @@ app.get('/random', requireAuth, (req, res) => {
   const size = Math.min(parseInt(req.query.size) || 50, 500);
   let pool = library;
 
-  if (req.query.folder && req.query.folder !== 'default') {
-    pool = pool.filter(s => s.path.startsWith(req.query.folder + '/'));
+  if (req.query.folder === 'pop') {
+    pool = pool.filter(s => s.path.startsWith('pop/'));
+  } else if (req.query.folder === 'boost') {
+    pool = pool.filter(s => s.path.startsWith('boost/'));
+  } else if (req.query.folder === 'littlestar') {
+    pool = pool.filter(s => s.path.startsWith('littlestar/'));
   } else if (!req.query.folder || req.query.folder === 'default') {
-    const subs = getSubfolders();
-    pool = pool.filter(s => !subs.some(f => s.path.startsWith(f + '/')));
+    pool = pool.filter(s => !s.path.includes('/'));
   }
 
   const arr = pool.slice();
@@ -786,7 +789,7 @@ app.post('/signup', (req, res) => {
   sr.count++;
   pendingSignups.push({ email, ip, createdAt: Date.now() });
   saveData('pending_signups.json', pendingSignups);
-  mailer.sendMail({ from: GMAIL_USER, to: GMAIL_USER, subject: 'New L5Music Signup Request', html: '<p>New signup request from: <b>' + email + '</b></p><p>IP: ' + ip + '</p><p>Go to <a href="https://' + DOMAIN + '">Monitor</a> to approve or reject.</p>' }).catch(e => console.error('Signup notify email failed:', e.message));
+  mailer.sendMail({ from: GMAIL_USER, to: GMAIL_USER, subject: 'New LaowuDIY Signup Request', html: '<p>New signup request from: <b>' + email + '</b></p><p>IP: ' + ip + '</p><p>Go to <a href="https://monitor.laowudiy.com">Monitor</a> to approve or reject.</p>' }).catch(e => console.error('Signup notify email failed:', e.message));
   res.json({ ok: true, message: 'Request submitted! You will receive an email when approved.' });
 });
 
@@ -796,7 +799,7 @@ app.post('/ytmp3/start', requireAuth, (req, res) => {
   if (!url || typeof url !== 'string' || !/^https?:\/\//.test(url)) {
     return res.status(400).json({ ok: false, error: 'Valid URL required.' });
   }
-  const musicDir = getDestDir(dest);
+  const musicDir = DEST_DIRS[dest] || DEST_DIRS.default;
   const jobId = crypto.randomBytes(8).toString('hex');
   const job = {
     phase: 'starting', done: false, error_message: '',
@@ -909,13 +912,13 @@ app.post('/admin/approve-signup', requireAdmin, async (req, res) => {
   pendingSignups.splice(idx, 1);
   saveData('pending_signups.json', pendingSignups);
 
-  const link = `https://${DOMAIN}/setup?token=${token}`;
+  const link = `https://laowudiy.com/setup?token=${token}`;
   try {
     await mailer.sendMail({
       from: GMAIL_USER,
       to: email,
-      subject: 'L5Music - Set Up Your Account',
-      html: `<h2>Welcome to L5Music!</h2><p>Your signup request has been approved. Click the link below to create your username and password:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#ff7a18;color:#000;text-decoration:none;border-radius:8px;font-weight:bold">Set Up Account</a></p><p>Or copy this link: ${link}</p><p>This link expires in 24 hours.</p><p><strong>Important:</strong> We do not store your password. If you forget it, we can only reset it for you — we cannot recover it.</p>`
+      subject: 'LaowuDIY - Set Up Your Account',
+      html: `<h2>Welcome to LaowuDIY!</h2><p>Your signup request has been approved. Click the link below to create your username and password:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#ff7a18;color:#000;text-decoration:none;border-radius:8px;font-weight:bold">Set Up Account</a></p><p>Or copy this link: ${link}</p><p>This link expires in 24 hours.</p><p><strong>Important:</strong> We do not store your password. If you forget it, we can only reset it for you — we cannot recover it.</p>`
     });
     res.json({ ok: true, message: `Setup link emailed to ${email}` });
   } catch (e) {
@@ -932,6 +935,29 @@ app.post('/admin/reject-signup', requireAdmin, (req, res) => {
   pendingSignups.splice(idx, 1);
   saveData('pending_signups.json', pendingSignups);
   res.json({ ok: true, message: 'Rejected and removed' });
+});
+
+// -- GET blocked IPs (owner only) --
+app.get('/admin/blocked-ips', requireOwner, (req, res) => {
+  const now = Date.now();
+  const ips = [];
+  for (const [ip, att] of Object.entries(loginAttempts)) {
+    if (att.lockedUntil && now < att.lockedUntil) {
+      ips.push({ ip, type: 'ip-lock', lockedUntil: att.lockedUntil, phase: att.phase, minsLeft: Math.ceil((att.lockedUntil - now) / 60000) });
+    }
+  }
+  const locked = users.filter(u => u.accountLocked).map(u => ({ ip: u.username, type: 'account-lock', username: u.username }));
+  res.json({ ok: true, blocked: [...ips, ...locked] });
+});
+
+// -- POST unblock IP (owner only) --
+app.post('/admin/unblock-ip', requireOwner, (req, res) => {
+  const { ip } = req.body;
+  if (!ip) return res.status(400).json({ ok: false, error: 'IP required' });
+  if (loginAttempts[ip]) { delete loginAttempts[ip]; return res.json({ ok: true, message: 'IP unlocked' }); }
+  const user = users.find(u => u.username === ip && u.accountLocked);
+  if (user) { user.accountLocked = false; saveData('users.json', users); return res.json({ ok: true, message: 'Account unlocked' }); }
+  res.status(404).json({ ok: false, error: 'Not found' });
 });
 
 // -- VALIDATE setup token (public) --
@@ -987,7 +1013,7 @@ app.post('/setup', async (req, res) => {
   delete setupTokens[token];
   saveData('setup_tokens.json', setupTokens);
 
-  const msg = t.type === 'reset' ? 'Password reset successfully!' : 'Account created! You can now log in at ${DOMAIN}';
+  const msg = t.type === 'reset' ? 'Password reset successfully!' : 'Account created! You can now log in at music.laowudiy.com';
   res.json({ ok: true, message: msg + 'You can now log in.' });
 });
 
@@ -1001,11 +1027,11 @@ app.post('/admin/reset-password/:username', requireAdmin, async (req, res) => {
   setupTokens[token] = { email: user.email, username: user.username, type: 'reset', createdAt: Date.now(), expiresAt: Date.now() + 12 * 60 * 60 * 1000 };
   saveData('setup_tokens.json', setupTokens);
 
-  const link = `https://${DOMAIN}/reset?token=${token}`;
+  const link = `https://laowudiy.com/reset?token=${token}`;
   try {
     await mailer.sendMail({
       from: GMAIL_USER, to: user.email,
-      subject: 'L5Music - Reset Your Password',
+      subject: 'LaowuDIY - Reset Your Password',
       html: `<h2>Password Reset</h2><p>Click below to set a new password:</p><p><a href="${link}" style="display:inline-block;padding:12px 24px;background:#ff7a18;color:#000;text-decoration:none;border-radius:8px;font-weight:bold">Reset Password</a></p><p>Or copy: ${link}</p><p>Expires in 12 hours.</p>`
     });
     res.json({ ok: true, message: `Reset link emailed to ${user.email}` });

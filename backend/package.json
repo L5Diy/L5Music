@@ -1,17 +1,16 @@
 {
   "name": "l5music-core",
   "version": "1.0.0",
-  "description": "L5Music backend API server",
-  "main": "server.js",
+  "description": "",
+  "main": "index.js",
   "scripts": {
-    "start": "node server.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["music", "streaming", "self-hosted", "raspberry-pi"],
-  "author": "L5Diy",
-  "license": "MIT",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "dotenv": "^16.4.0",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
     "music-metadata": "^11.12.1",
