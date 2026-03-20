@@ -941,7 +941,7 @@ app.post('/admin/reject-signup', requireAdmin, (req, res) => {
 });
 
 // ── GET blocked IPs and locked accounts (admin) ──
-app.get('/admin/blocked-ips', requireAdmin, (req, res) => {
+app.get('/admin/blocked-ips', requireOwner, (req, res) => {
   const now = Date.now();
   const ips = [];
   for (const [ip, att] of Object.entries(loginAttempts)) {
@@ -954,7 +954,7 @@ app.get('/admin/blocked-ips', requireAdmin, (req, res) => {
 });
 
 // ── POST unblock IP or unlock account (admin) ──
-app.post('/admin/unblock-ip', requireAdmin, (req, res) => {
+app.post('/admin/unblock-ip', requireOwner, (req, res) => {
   const { ip } = req.body;
   if (!ip) return res.status(400).json({ ok: false, error: 'IP required' });
   if (loginAttempts[ip]) { delete loginAttempts[ip]; return res.json({ ok: true, message: 'IP unlocked' }); }
